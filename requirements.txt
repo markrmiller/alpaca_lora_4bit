@@ -1,3 +1,4 @@
+ninja
 torch
 accelerate
 datasets
@@ -8,6 +9,11 @@ colorama
 pyzmq
 git+https://github.com/huggingface/peft.git@70af02a2bca5a63921790036b2c9430edf4037e2
 git+https://github.com/huggingface/transformers.git
+bitsandbytes
 git+https://github.com/sterlind/GPTQ-for-LLaMa.git@lora_4bit
 wandb
 packaging
+triton
+xformers
+scipy
+

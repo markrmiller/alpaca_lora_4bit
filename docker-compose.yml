@@ -1,0 +1,16 @@
+version: "3"
+services:
+  alpaca-lora-4bit-docker:
+    build:
+      context: .
+    volumes:
+      - ../models:/alpaca_lora_4bit/models #replace ../models with your own models folder location
+    stdin_open: true
+    tty: true
+    deploy:
+        resources:
+          reservations:
+            devices:
+              - driver: nvidia
+                device_ids: ['0'] #,'1' for more gpu's
+                capabilities: [gpu]

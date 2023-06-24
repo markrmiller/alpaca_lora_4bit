@@ -16,12 +16,28 @@
         }
     ]
 """
+import transformers.models.llama.modeling_llama
+
 # Early load config to replace attn if needed
 from arg_parser import get_config
 ft_config = get_config()
 
 from monkeypatch.peft_tuners_lora_monkey_patch import replace_peft_model_with_gptq_lora_model
 replace_peft_model_with_gptq_lora_model()
+
+from monkeypatch.llama_attn_hijack_xformers import hijack_llama_attention
+hijack_llama_attention()
+
+from monkeypatch.llama_rope_scaled_monkey_patch import ScaledRotaryEmbedding
+
+
+# Call the replace function here
+replace_llama_rope_with_scaled_rope()
+
+#def replace_llama_rope_with_scaled_rope():
+#    transformers.models.llama.modeling_llama.LlamaRotaryEmbedding = ScaledRotaryEmbedding
+
+
 
 if ft_config.flash_attention:
     from monkeypatch.llama_flash_attn_monkey_patch import replace_llama_attn_with_flash_attn
@@ -48,6 +64,9 @@ import transformers
 from autograd_4bit import load_llama_model_4bit_low_ram
 from peft import LoraConfig, get_peft_model, get_peft_model_state_dict, PeftModel, set_peft_model_state_dict
 
+import matmul_utils_4bit
+matmul_utils_4bit.faster = False
+
 # ! Config
 import train_data
 
@@ -60,6 +79,8 @@ if ft_config.gradient_checkpointing:
 
 if ft_config.mbatch_size > ft_config.batch_size:
     raise Exception('batch_size need to be larger than mbatch_size.')
+
+offloadfolder = "./offload"
 
 # Load Basic Model
 model, tokenizer = load_llama_model_4bit_low_ram(ft_config.llama_q4_config_dir,
@@ -113,6 +134,8 @@ if not ft_config.skip:
     elif ft_config.ds_type == "alpaca" and not ft_config.skip:
         #### Stanford Alpaca-like Data
         data = train_data.TrainSAD(ft_config.dataset, ft_config.val_set_size, tokenizer, ft_config.cutoff_len)
+        print(data)
+        print("poop")
     elif ft_config.ds_type == "gpt4all" and not ft_config.skip:
         #### GPT4All Data
         data = train_data.TrainGPT4All(ft_config.dataset, ft_config.val_set_size, tokenizer, ft_config.cutoff_len)
@@ -134,6 +157,19 @@ if not ft_config.skip:
     if not ft_config.ddp and torch.cuda.device_count() > 1:
         model.is_parallelizable = True
         model.model_parallel = True
+        
+        
+    if data.train_data is None:
+    	print("Training data is None. Check your data loading/preprocessing.")
+    	# Handle error here
+    if data.val_data is None:
+    	print("Validation data is None. Check your data loading/preprocessing.")
+    	# Handle error here
+    print("Training data: ", data.train_data)
+    print("Validation data: ", data.val_data)
+    print("Training data shape: ", data.train_data.shape)
+    print("Validation data shape: ", data.val_data.shape)
+
         
     # Count eval count for wandb
     if ft_config.val_set_size > 0:

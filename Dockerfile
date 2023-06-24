@@ -12,20 +12,19 @@ RUN pip3 install --upgrade pip
 RUN --mount=type=cache,target=/root/.cache/pip pip install --user torch==2.0.0
 RUN --mount=type=cache,target=/root/.cache/pip pip install --user semantic-version==2.10.0 requests tqdm
 
+
+
+#\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/
+
 # The docker build environment has trouble detecting CUDA version, build for all reasonable archs
-ENV TORCH_CUDA_ARCH_LIST="6.0 6.1 7.0 7.5 8.0 8.6"
+ENV TORCH_CUDA_ARCH_LIST="8.6" #you NEED to add your own GPU ARCH Number. https://stackoverflow.com/questions/68496906/pytorch-installation-for-different-cuda-architectures
+
+#/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\
+
+
+
 COPY requirements.txt requirements.txt
 RUN --mount=type=cache,target=/root/.cache pip install --user -r requirements.txt
-
-# -------------------------------
-
-# Download the model
-FROM nvidia/cuda:11.7.0-devel-ubuntu22.04 AS downloader
-RUN apt-get update && apt-get install -y wget
-
-RUN wget --progress=bar:force:noscroll https://huggingface.co/decapoda-research/llama-7b-hf-int4/resolve/main/llama-7b-4bit.pt
-
-
 
 # -------------------------------
 
@@ -43,36 +42,40 @@ COPY --from=builder /root/.local /root/.local
 RUN mkdir alpaca_lora_4bit
 WORKDIR alpaca_lora_4bit
 
-COPY --from=downloader llama-7b-4bit.pt llama-7b-4bit.pt
+COPY ./requirements.txt .
 
-#RUN git clone --depth=1 --branch main https://github.com/andybarry/text-generation-webui-4bit.git text-generation-webui-tmp
-
-RUN git clone --depth=1 --branch main https://github.com/oobabooga/text-generation-webui.git text-generation-webui-tmp
-
-RUN --mount=type=cache,target=/root/.cache pip install --user markdown gradio
-
-# Apply monkey patch
-RUN cd text-generation-webui-tmp && printf '%s'"import custom_monkey_patch # apply monkey patch\nimport gc\n\n" | cat - server.py > tmpfile && mv tmpfile server.py
-
-# Get the model config
-RUN cd text-generation-webui-tmp && python download-model.py --text-only decapoda-research/llama-7b-hf && mv models/decapoda-research_llama-7b-hf ../llama-7b-4bit
+RUN pip install -r requirements.txt
+RUN pip install git+https://github.com/HazyResearch/flash-attention.git --no-build-isolation
 
 
-# Get LoRA
-RUN cd text-generation-webui-tmp && python download-model.py samwit/alpaca7b-lora && mv loras/samwit_alpaca7b-lora ../alpaca7b_lora
 
-COPY *.py .
-COPY text-generation-webui text-generation-webui
-COPY monkeypatch text-generation-webui/monkeypatch
+COPY . .
 
-RUN mv -f text-generation-webui-tmp/* text-generation-webui/
-
-# Symlink for monkeypatch
-RUN cd text-generation-webui && ln -s ../autograd_4bit.py ./autograd_4bit.py && ln -s ../matmul_utils_4bit.py .
-
-# Swap to the 7bn parameter model
-RUN sed -i 's/llama-13b-4bit/llama-7b-4bit/g' text-generation-webui/custom_monkey_patch.py && sed -i 's/alpaca13b_lora/alpaca7b_lora/g' text-generation-webui/custom_monkey_patch.py
 
 # Run the server
-WORKDIR /alpaca_lora_4bit/text-generation-webui
-CMD ["python", "-u", "server.py", "--listen", "--chat"]
+WORKDIR /alpaca_lora_4bit
+
+
+ENTRYPOINT python finetune.py ./models/filtered.json \
+    --ds_type=txt \
+    --lora_out_dir=./test/ \
+    --llama_q4_config_dir=./models/airoboros-7b-4bit-128g/ \
+    --llama_q4_model=./models/airoboros-7b-4bit-128g/airoboros-7b-gpt4-1.4-GPTQ-4bit-128g.no-act.order.safetensors \
+    --mbatch_size=1 \
+    --batch_size=1 \
+    --epochs=1 \
+    --lr=3e-4 \
+    --cutoff_len=4192 \
+    --lora_r=8 \
+    --lora_alpha=16 \
+    --lora_dropout=0.05 \
+    --warmup_steps=5 \
+    --save_steps=100 \
+    --save_total_limit=3 \
+    --logging_steps=5 \
+    --groupsize=128 \
+    --xformers \
+    --backend=cuda \
+    --grad_chckpt \
+    --val_set_size=19238 \
+    --ds_type=alpaca
