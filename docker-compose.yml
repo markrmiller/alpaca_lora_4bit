@@ -4,9 +4,36 @@ services:
     build:
       context: .
     volumes:
-      - ../models:/alpaca_lora_4bit/models #replace ../models with your own models folder location
+      # replace ../models with your own models folder location
+      - ../models:/alpaca_lora_4bit/models 
     stdin_open: true
     tty: true
+    environment: 
+      - WANDB_API_KEY=your_api_key_here
+      # - WANDB_BASE_URL=your_base_url_here
+    entrypoint: ["python", "finetune.py", "./models/filtered.json"]
+    command: 
+      - "--lora_out_dir=./test/"
+      - "--llama_q4_config_dir=./models/airoboros-7b-4bit-128g/"
+      - "--llama_q4_model=./models/airoboros-7b-4bit-128g/airoboros-7b-gpt4-1.4-GPTQ-4bit-128g.no-act.order.safetensors"
+      - "--mbatch_size=1"
+      - "--batch_size=1"
+      - "--epochs=1"
+      - "--lr=3e-4"
+      - "--cutoff_len=4192"
+      - "--lora_r=8"
+      - "--lora_alpha=16"
+      - "--lora_dropout=0.05"
+      - "--warmup_steps=5"
+      - "--save_steps=100"
+      - "--save_total_limit=3"
+      - "--logging_steps=5"
+      - "--groupsize=128"
+      - "--xformers"
+      - "--backend=cuda"
+      - "--grad_chckpt"
+      - "--val_set_size=19238"
+      - "--ds_type=alpaca"
     deploy:
         resources:
           reservations:

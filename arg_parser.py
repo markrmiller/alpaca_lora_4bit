@@ -74,6 +74,15 @@ def parse_commandline():
 
     # Train Backend
     parser_training.add_argument("--backend", type=str, default='cuda', help="Backend to use. Triton or Cuda.")
+    
+    #Adam decay
+    parser.add_argument("--weight_decay", type=float, default=0.1, help="Weight decay if we apply some.")
+    parser.add_argument("--adam_beta1", type=float, default=0.9, help="Adam Beta 1")
+    parser.add_argument("--adam_beta2", type=float, default=0.99, help="Adam Beta 2")
+    parser.add_argument("--adam_epsilon", type=float, default=1e-5, help="Adam Epsilon")
+    parser.add_argument("--dropbox_token", type=str, default="", required=False, help="Dropbox Access Token for backups")
+    parser.add_argument("--name", type=str, default="bob", required=False, help="Internal name")
+    parser.add_argument("--project", type=str, default="alpaca_lora_4bit", required=False, help="Project name")
 
     return vars(parser.parse_args())
 
@@ -114,4 +123,11 @@ def get_config() -> Finetune4bConfig:
         flash_attention=args["flash_attention"],
         xformers=args["xformers"],
         backend=args["backend"],
+        weight_decay=args["weight_decay"],
+        adam_beta1=args["adam_beta1"],
+        adam_beta2=args["adam_beta2"],
+        adam_epsilon=args["adam_epsilon"],
+        dropbox_token=args["dropbox_token"],
+        name=args["name"],
+        project=args["project"]
     )

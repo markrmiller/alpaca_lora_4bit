@@ -16,6 +16,8 @@
         }
     ]
 """
+import time
+
 import transformers.models.llama.modeling_llama
 
 # Early load config to replace attn if needed
@@ -28,14 +30,9 @@ replace_peft_model_with_gptq_lora_model()
 from monkeypatch.llama_attn_hijack_xformers import hijack_llama_attention
 hijack_llama_attention()
 
-from monkeypatch.llama_rope_scaled_monkey_patch import ScaledRotaryEmbedding
 
-
-# Call the replace function here
-replace_llama_rope_with_scaled_rope()
-
-#def replace_llama_rope_with_scaled_rope():
-#    transformers.models.llama.modeling_llama.LlamaRotaryEmbedding = ScaledRotaryEmbedding
+# def replace_llama_rope_with_scaled_rope():
+# transformers.models.llama.modeling_llama.LlamaRotaryEmbedding = ScaledRotaryEmbedding
 
 
 
@@ -45,12 +42,20 @@ if ft_config.flash_attention:
 elif ft_config.xformers:
     from monkeypatch.llama_attn_hijack_xformers import hijack_llama_attention
     hijack_llama_attention()
+    
+    
+# Call the rope replace function here
+from monkeypatch.llama_rope_scaled_monkey_patch import replace_llama_rope_with_scaled_rope
+replace_llama_rope_with_scaled_rope()
+    
 
 import autograd_4bit
 if ft_config.backend.lower() == 'triton':
     autograd_4bit.switch_backend_to('triton')
 else:
     autograd_4bit.switch_backend_to('cuda')
+
+
 
 import sys
 import os
@@ -66,6 +71,108 @@ from peft import LoraConfig, get_peft_model, get_peft_model_state_dict, PeftMode
 
 import matmul_utils_4bit
 matmul_utils_4bit.faster = False
+
+
+"""
+Backs up and restores a settings file to Dropbox.
+This is an example app for API v2.
+Copied from https://github.com/dropbox/dropbox-sdk-python/blob/main/example/back-up-and-restore/backup-and-restore-example.py
+"""
+if ft_config.dropbox_token:
+    import dropbox
+    from dropbox.files import WriteMode
+    from dropbox.exceptions import ApiError, AuthError
+
+    TOKEN = ft_config.dropbox_token
+    if ft_config.name:
+        BACKUPPATH = "/" + ft_config.name + "/"
+    else:
+        BACKUPPATH = '/dump/'
+
+    # Uploads contents of LOCALFILE to Dropbox
+    def backup(LOCALFILE):
+        with open(LOCALFILE, 'rb') as f:
+            # We use WriteMode=overwrite to make sure that the settings in the file
+            # are changed on upload
+            print("Uploading " + LOCALFILE + " to Dropbox as " + BACKUPPATH + "...")
+            try:
+                dbx.files_upload(f.read(), BACKUPPATH, mode=WriteMode('overwrite'))
+            except ApiError as err:
+                # This checks for the specific error where a user doesn't have
+                # enough Dropbox space quota to upload this file
+                if (err.error.is_path() and
+                        err.error.get_path().reason.is_insufficient_space()):
+                    sys.exit("ERROR: Cannot back up; insufficient space.")
+                elif err.user_message_text:
+                    print(err.user_message_text)
+                    sys.exit()
+                else:
+                    print(err)
+                    sys.exit()
+
+    # Restore the local and Dropbox files to a certain revision
+    def restore(rev=None):
+        # Restore the file on Dropbox to a certain revision
+        print("Restoring " + BACKUPPATH + " to revision " + rev + " on Dropbox...")
+        dbx.files_restore(BACKUPPATH, rev)
+
+        # Download the specific revision of the file at BACKUPPATH to LOCALFILE
+        print("Downloading current " + BACKUPPATH + " from Dropbox, overwriting " + LOCALFILE + "...")
+        dbx.files_download_to_file(LOCALFILE, BACKUPPATH, rev)
+
+    # Look at all of the available revisions on Dropbox, and return the oldest one
+    def select_revision():
+        # Get the revisions for a file (and sort by the datetime object, "server_modified")
+        print("Finding available revisions on Dropbox...")
+        entries = dbx.files_list_revisions(BACKUPPATH, limit=30).entries
+        revisions = sorted(entries, key=lambda entry: entry.server_modified)
+
+        for revision in revisions:
+            print(revision.rev, revision.server_modified)
+
+        # Return the oldest revision (first entry, because revisions was sorted oldest:newest)
+        return revisions[0].rev
+
+
+    class CustomTrainer(transformers.Trainer):
+        def _tune_save_checkpoint(self):
+            if not self.use_tune_checkpoints:
+                return
+            with tune.checkpoint_dir(step=self.state.global_step) as checkpoint_dir:
+                output_dir = os.path.join(checkpoint_dir, f"{PREFIX_CHECKPOINT_DIR}-{self.state.global_step}")
+                self.save_model(output_dir, _internal_call=True)
+                if self.args.should_save:
+                    self.state.save_to_json(os.path.join(output_dir, TRAINER_STATE_NAME))
+                    torch.save(self.optimizer.state_dict(), os.path.join(output_dir, OPTIMIZER_NAME))
+                    torch.save(self.lr_scheduler.state_dict(), os.path.join(output_dir, SCHEDULER_NAME))
+                print(output_dir)
+                backup(output_dir + "/adapter_config.json")
+                backup(output_dir + "/adapter_model.bin")
+                backup(output_dir + "/optimizer.pt")
+                backup(output_dir + "/rng_state.pth")
+                backup(output_dir + "/scheduler.pt")
+                backup(output_dir + "/trainer_state.json")
+                backup(output_dir + "/training_args.bin")
+
+    if len(TOKEN) == 0:
+        sys.exit("ERROR: Looks like you didn't add your access token. "
+            "Open up backup-and-restore-example.py in a text editor and "
+            "paste in your token in line 14.")
+
+    # Create an instance of a Dropbox class, which can make requests to the API.
+    print("Creating a Dropbox backup object...")
+    with dropbox.Dropbox(TOKEN) as dbx:
+
+        # Check that the access token is valid
+        try:
+            dbx.users_get_current_account()
+        except AuthError:
+            sys.exit("ERROR: Invalid access token; try re-generating an "
+                "access token from the app console on the web.")
+
+
+        print("Done!")
+
 
 # ! Config
 import train_data
@@ -84,7 +191,7 @@ offloadfolder = "./offload"
 
 # Load Basic Model
 model, tokenizer = load_llama_model_4bit_low_ram(ft_config.llama_q4_config_dir,
-                                                  ft_config.llama_q4_model,
+                                                  ft_config.llama_q4_config_dir+ft_config.llama_q4_model,
                                                   device_map=ft_config.device_map,
                                                   groupsize=ft_config.groupsize,
                                                   is_v1_model=ft_config.v1)
@@ -93,9 +200,9 @@ model, tokenizer = load_llama_model_4bit_low_ram(ft_config.llama_q4_config_dir,
 lora_config = LoraConfig(
     r=ft_config.lora_r,
     lora_alpha=ft_config.lora_alpha,
-    target_modules=["q_proj", "v_proj"],
+    target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
     lora_dropout=ft_config.lora_dropout,
-    bias="none",
+    bias="all",
     task_type="CAUSAL_LM",
 )
 if ft_config.lora_apply_dir is None:
@@ -110,7 +217,25 @@ else:
         else:
             device_map = {'': 0}
     print('Device map for lora:', device_map)
-    model = PeftModel.from_pretrained(model, ft_config.lora_apply_dir, device_map=device_map, torch_dtype=torch.float32, is_trainable=True)
+    
+    
+    if ft_config.resume_checkpoint:
+       model = PeftModel.from_pretrained(
+          model, 
+          ft_config.resume_checkpoint,
+          ft_config.lora_apply_dir, 
+          device_map=device_map,
+          torch_dtype=torch.float32, 
+          is_trainable=True)
+       ft_config.resume_checkpoint = False
+    else:
+       model = PeftModel.from_pretrained(
+          model, 
+          ft_config.lora_apply_dir, 
+          device_map=device_map, 
+          torch_dtype=torch.float32, 
+          is_trainable=True)
+    
     print(ft_config.lora_apply_dir, 'loaded')
 
 
@@ -135,7 +260,7 @@ if not ft_config.skip:
         #### Stanford Alpaca-like Data
         data = train_data.TrainSAD(ft_config.dataset, ft_config.val_set_size, tokenizer, ft_config.cutoff_len)
         print(data)
-        print("poop")
+        print("Hi")
     elif ft_config.ds_type == "gpt4all" and not ft_config.skip:
         #### GPT4All Data
         data = train_data.TrainGPT4All(ft_config.dataset, ft_config.val_set_size, tokenizer, ft_config.cutoff_len)
@@ -160,11 +285,11 @@ if not ft_config.skip:
         
         
     if data.train_data is None:
-    	print("Training data is None. Check your data loading/preprocessing.")
-    	# Handle error here
+        print("Training data is None. Check your data loading/preprocessing.")
+        # Handle error here
     if data.val_data is None:
-    	print("Validation data is None. Check your data loading/preprocessing.")
-    	# Handle error here
+        print("Validation data is None. Check your data loading/preprocessing.")
+        # Handle error here
     print("Training data: ", data.train_data)
     print("Validation data: ", data.val_data)
     print("Training data shape: ", data.train_data.shape)
@@ -173,13 +298,13 @@ if not ft_config.skip:
         
     # Count eval count for wandb
     if ft_config.val_set_size > 0:
-        eval_count = 10
+        eval_count = 50
         eval_steps = max(
             ft_config.logging_steps, (len(data.train_data) + len(data.val_data)) // (eval_count*ft_config.mbatch_size)
         )
         print(f"Run eval every {eval_steps} steps")
     else:
-        eval_steps = 0
+        eval_steps = 3000
 
     training_arguments = transformers.TrainingArguments(
         per_device_train_batch_size=ft_config.mbatch_size,
@@ -198,9 +323,13 @@ if not ft_config.skip:
         save_total_limit=ft_config.save_total_limit,
         load_best_model_at_end=False,
         ddp_find_unused_parameters=False if ft_config.ddp else None,
+        weight_decay=ft_config.weight_decay,
+        adam_beta1=ft_config.adam_beta1,
+        adam_beta2=ft_config.adam_beta2,
+        adam_epsilon=ft_config.adam_epsilon
     )
 
-    trainer = transformers.Trainer(
+    trainer = CustomTrainer(
         model=model,
         train_dataset=data.train_data,
         eval_dataset=data.val_data,
@@ -220,10 +349,11 @@ if not ft_config.skip:
         transformers.logging.set_verbosity_info()
 
     # Run Trainer
-    with wandb.init(project="alpaca_lora_4bit") as run:
+    with wandb.init(project=ft_config.project) as run:
+        runName = run.name
         if ft_config.resume_checkpoint:
             print('Resuming from {} ...'.format(ft_config.resume_checkpoint))
-            state_dict_peft = torch.load(os.path.join(ft_config.resume_checkpoint, 'pytorch_model.bin'), map_location='cpu')
+            state_dict_peft = torch.load(os.path.join(ft_config.resume_checkpoint, 'llama7b-gptq-4bit-128g.safetensors'), map_location='cpu')
             set_peft_model_state_dict(model, state_dict_peft)
             trainer.train(ft_config.resume_checkpoint)
         else:
@@ -241,3 +371,8 @@ if ft_config.checkpoint:
     print("Warning: Merge model + LoRA and save the whole checkpoint not implemented yet.")
 
 print('Model Saved.')
+
+while True:
+    # your script here
+
+    time.sleep(3600)  # pause for one hour

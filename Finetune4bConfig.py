@@ -15,7 +15,9 @@ class Finetune4bConfig:
                  warmup_steps: int, save_steps: int, save_total_limit: int, logging_steps: int,
                  checkpoint: bool, skip: bool, verbose: bool,
                  txt_row_thd: int, use_eos_token: bool, groupsize: int, v1: bool,
-                 local_rank: int, flash_attention: bool, xformers: bool, backend: str
+                 local_rank: int, flash_attention: bool, xformers: bool, backend: str,
+                 weight_decay: float, adam_beta1: float, adam_beta2: float, adam_epsilon: float,
+                 dropbox_token: str, name: str, project: str
                  ):
         """
         Args:
@@ -91,6 +93,13 @@ class Finetune4bConfig:
         self.flash_attention = flash_attention
         self.xformers = xformers
         self.backend = backend
+        self.weight_decay = weight_decay
+        self.adam_beta1 = adam_beta1
+        self.adam_beta2 = adam_beta2
+        self.adam_epsilon = adam_epsilon
+        self.dropbox_token = dropbox_token
+        self.name = name
+        self.project = project
 
 
     def __str__(self) -> str:
@@ -103,5 +112,7 @@ class Finetune4bConfig:
         f"{self.logging_steps=}\n" +\
         f"{self.checkpoint=}\n{self.skip=}\n" +\
         f"{self.world_size=}\n{self.ddp=}\n{self.device_map=}\n" +\
-        f"{self.groupsize=}\n{self.v1=}\n{self.backend=}\n"
+        f"{self.groupsize=}\n{self.v1=}\n{self.backend=}\n" +\
+        f"{self.weight_decay=}\n{self.adam_beta1=}\n{self.adam_beta2=}\n{self.adam_epsilon=}\n" +\
+        f"{self.dropbox_token=}\n{self.name=}\n{self.project=}\n"
         return s.replace("self.", "")
