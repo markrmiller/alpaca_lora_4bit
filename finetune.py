@@ -189,7 +189,6 @@ if not ft_config.skip:
         gradient_accumulation_steps=ft_config.gradient_accumulation_steps,
         warmup_steps=ft_config.warmup_steps,
         optim=optimizer,
-        device=accelerator.device,
         num_train_epochs=ft_config.epochs,
         learning_rate=ft_config.lr,
         fp16=True,
