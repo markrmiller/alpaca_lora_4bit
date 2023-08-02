@@ -194,6 +194,62 @@ class TrainSAD(ATrainData):
         prompt = self.generate_prompt(data_point, **kwargs)
         return self.tokenize(prompt, **kwargs)
 
+class TrainSimpleJson(ATrainData):
+    def __init__(self, dataset: str, val_set_size: float, tokenizer, cutoff_len) -> None:
+        super().__init__(dataset, val_set_size, tokenizer, cutoff_len)
+
+    def tokenize(self, prompt: str, use_eos_token=True, no_eos_or_pad=False, **kwargs) -> Dict[str, Any]:
+        if use_eos_token:
+            result = self.tokenizer(
+                prompt + self.tokenizer.eos_token,
+                truncation=True,
+                max_length=self.cutoff_len,
+                padding=False,
+            )
+            if (
+                    result["input_ids"][-1] != self.tokenizer.eos_token_id
+                    and len(result["input_ids"]) < self.cutoff_len
+            ):
+                result["input_ids"].append(self.tokenizer.eos_token_id)
+                result["attention_mask"].append(1)
+            return result
+        else:
+            result = self.tokenizer(
+                prompt,
+                truncation=True,
+                max_length=self.cutoff_len + 1,
+                padding="max_length",
+            )
+            return {
+                "input_ids": result["input_ids"][:-1],
+                "attention_mask": result["attention_mask"][:-1],
+            }
+
+    def prepare_data(self, use_eos_token=True, no_eos_or_pad=False, **kwargs) -> None:
+        with open(self.dataset, 'r') as f:
+            data = json.load(f)
+
+        random.shuffle(data)
+        split_point = int(len(data) * (1 - self.val_set_size))
+        train_data, val_data = data[:split_point], data[split_point:]
+
+        self.train_data = list(
+            map(lambda x: self.generate_and_tokenize_prompt(x, use_eos_token=use_eos_token, no_eos_or_pad=no_eos_or_pad), train_data))
+        if self.val_set_size > 0:
+            self.val_data = list(
+                map(lambda x: self.generate_and_tokenize_prompt(x, use_eos_token=use_eos_token, no_eos_or_pad=no_eos_or_pad), val_data))
+        else:
+            self.val_data = None
+
+    def generate_prompt(self, data_point, **kwargs):
+        return "{0}\n{1}".format(
+            data_point["instruction"],
+            data_point["output"]
+        )
+
+    def generate_and_tokenize_prompt(self, data_point, **kwargs):
+        prompt = self.generate_prompt(data_point, **kwargs)
+        return self.tokenize(prompt, **kwargs)
 
 class TrainLLama2(ATrainData):
     def __init__(self, dataset: str, val_set_size: float, tokenizer, cutoff_len) -> None:

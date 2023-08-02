@@ -43,7 +43,16 @@ from monkeypatch.llama_rope_scaled_monkey_patch import replace_llama_rope_with_s
 replace_llama_rope_with_scaled_rope()
 
 from accelerate import Accelerator, DistributedType
-accelerator = Accelerator(fp16=True, device_placement=True)
+from accelerate import FullyShardedDataParallelPlugin
+from torch.distributed.fsdp.fully_sharded_data_parallel import FullOptimStateDictConfig, FullStateDictConfig
+
+
+# fsdp_plugin = FullyShardedDataParallelPlugin(
+#     state_dict_config=FullStateDictConfig(offload_to_cpu=True, rank0_only=False),
+#     optim_state_dict_config=FullOptimStateDictConfig(offload_to_cpu=True, rank0_only=False),
+# )
+
+accelerator = Accelerator(device_placement=True)
 
 
 from alpaca_lora_4bit import autograd_4bit
@@ -127,6 +136,8 @@ if not ft_config.skip:
     if ft_config.ds_type == "txt" and not ft_config.skip:
         #### LLaMa
         data = train_data.TrainTxt(ft_config.dataset, ft_config.val_set_size, tokenizer, ft_config.cutoff_len)
+    if ft_config.ds_type == "simple_json" and not ft_config.skip:
+        data = train_data.TrainSimpleJson(ft_config.dataset, ft_config.val_set_size, tokenizer, ft_config.cutoff_len)
     if ft_config.ds_type == "llama2" and not ft_config.skip:
         #### LLaMa2
         data = train_data.TrainLLama2(ft_config.dataset, ft_config.val_set_size, tokenizer, ft_config.cutoff_len)
@@ -167,9 +178,8 @@ if not ft_config.skip:
 
     optimizer = PagedAdamW8bit(model.parameters(), lr=ft_config.lr)
 
-    optimizer = accelerator.prepare(optimizer)
-    data.train_data = accelerator.prepare(data.train_data)
-    data.val_data = accelerator.prepare(data.val_data)
+    optimizer,   data.train_data,     data.val_data = accelerator.prepare(optimizer,   data.train_data,     data.val_data)
+
 
     training_arguments = transformers.TrainingArguments(
         per_device_train_batch_size=ft_config.mbatch_size,
