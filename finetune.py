@@ -18,6 +18,9 @@
 """
 import os
 import sys
+
+from bitsandbytes.optim import PagedAdamW8bit
+
 # set src so alpaca_lora_4bit package is available without installing
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 src_dir = os.path.join(project_root, "src")
@@ -151,7 +154,7 @@ if not ft_config.skip:
         #### Blue Moon Data
         data = train_data.TrainBlueMoon(ft_config.dataset, ft_config.val_set_size, tokenizer, ft_config.cutoff_len)
     else:
-        raise NotImplementedError("ERROR: Unknown dataset format")
+        raise NotImplementedError("ERROR: Unknown dataset format " + ft_config.ds_type)
     data.prepare_data(thd=ft_config.txt_row_thd, use_eos_token=ft_config.use_eos_token, no_eos_or_pad=ft_config.no_eos_or_pad)
     ####
 
