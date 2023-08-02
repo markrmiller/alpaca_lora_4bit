@@ -14,7 +14,7 @@ class Finetune4bConfig:
                  gradient_checkpointing_ratio: float,
                  warmup_steps: int, save_steps: int, save_total_limit: int, logging_steps: int,
                  checkpoint: bool, skip: bool, verbose: bool,
-                 txt_row_thd: int, use_eos_token: bool, groupsize: int, v1: bool,
+                 txt_row_thd: int, use_eos_token: bool, no_eos_or_pad: bool, groupsize: int, v1: bool,
                  local_rank: int, flash_attention: bool, xformers: bool, backend: str
                  ):
         """
@@ -80,6 +80,7 @@ class Finetune4bConfig:
         self.verbose = verbose
         self.txt_row_thd = txt_row_thd
         self.use_eos_token = use_eos_token
+        self.no_eos_or_pad = no_eos_or_pad
         self.world_size = int(os.environ.get("WORLD_SIZE", 1))
         self.local_rank = int(os.environ.get("LOCAL_RANK", local_rank))
         self.ddp = self.world_size != 1

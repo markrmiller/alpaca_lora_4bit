@@ -275,6 +275,7 @@ def load_llama_model_4bit_low_ram(config_path, model_path, groupsize=-1, half=Fa
         model=model,
         checkpoint=model_path,
         device_map=device_map,
+        offload_folder="offload",
         no_split_module_classes=["LlamaDecoderLayer"]
     )
 

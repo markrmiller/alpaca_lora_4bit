@@ -61,12 +61,16 @@ def xformers_forward(
 
         #This is a nasty hack. We know attention_mask in transformers is either LowerTriangular or all Zeros.
         #We therefore check if one element in the upper triangular portion is zero. If it is, then the mask is all zeros.
-        if attention_mask is None or attention_mask[0, 0, 0, 1] == 0:
-            # input and output should be of form (bsz, q_len, num_heads, head_dim)
-            attn_output = xformers.ops.memory_efficient_attention(query_states, key_states, value_states, attn_bias=None)
-        else:
-            # input and output should be of form (bsz, q_len, num_heads, head_dim)
-            attn_output = xformers.ops.memory_efficient_attention(query_states, key_states, value_states, attn_bias=xformers.ops.LowerTriangularMask())
+        try:
+            if attention_mask is None or attention_mask[0, 0, 0, 1] == 0:
+                # input and output should be of form (bsz, q_len, num_heads, head_dim)
+                attn_output = xformers.ops.memory_efficient_attention(query_states, key_states, value_states, attn_bias=None)
+            else:
+                # input and output should be of form (bsz, q_len, num_heads, head_dim)
+                attn_output = xformers.ops.memory_efficient_attention(query_states, key_states, value_states, attn_bias=xformers.ops.LowerTriangularMask())
+        except RuntimeError as e:
+             attn_output = xformers.ops.memory_efficient_attention(query_states, key_states, value_states,
+                                                                  attn_bias=None)
         attn_weights = None
     else:
         attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
