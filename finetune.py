@@ -139,9 +139,9 @@ if not ft_config.skip:
     if ft_config.ds_type == "txt" and not ft_config.skip:
         #### LLaMa
         data = train_data.TrainTxt(ft_config.dataset, ft_config.val_set_size, tokenizer, ft_config.cutoff_len)
-    if ft_config.ds_type == "simple_json" and not ft_config.skip:
+    elif ft_config.ds_type == "simple_json" and not ft_config.skip:
         data = train_data.TrainSimpleJson(ft_config.dataset, ft_config.val_set_size, tokenizer, ft_config.cutoff_len)
-    if ft_config.ds_type == "llama2" and not ft_config.skip:
+    elif ft_config.ds_type == "llama2" and not ft_config.skip:
         #### LLaMa2
         data = train_data.TrainLLama2(ft_config.dataset, ft_config.val_set_size, tokenizer, ft_config.cutoff_len)
     elif ft_config.ds_type == "alpaca" and not ft_config.skip:
