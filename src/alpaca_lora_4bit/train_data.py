@@ -162,7 +162,7 @@ class TrainSAD(ATrainData):
                 "attention_mask": result["attention_mask"][:-1],
             }
 
-    def prepare_data(self, use_eos_token=True, **kwargs) -> None:
+    def prepare_data(self, use_eos_token=True, no_eos_or_pad=False,  **kwargs) -> None:
         data = load_dataset("json", data_files=self.dataset)
 
         if self.val_set_size > 0:
@@ -242,7 +242,8 @@ class TrainSimpleJson(ATrainData):
             self.val_data = None
 
     def generate_prompt(self, data_point, **kwargs):
-        return "{0}\n{1}".format(
+        return "[INST] <<SYS>>{0}<</SYS>>{1}[/INST]{2}".format(
+            data_point["system"],
             data_point["instruction"],
             data_point["output"]
         )
