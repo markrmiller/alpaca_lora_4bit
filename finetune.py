@@ -120,6 +120,7 @@ else:
     model = PeftModel.from_pretrained(model, ft_config.lora_apply_dir, device_map=device_map, torch_dtype=torch.float32, is_trainable=True)
     print(ft_config.lora_apply_dir, 'loaded')
 
+model.config.use_cache = False
 model = accelerator.prepare(model)
 
 # Scales to half
@@ -208,7 +209,7 @@ if not ft_config.skip:
         args=training_arguments,
         data_collator=transformers.DataCollatorForLanguageModeling(tokenizer, mlm=False),
     )
-    model.config.use_cache = False
+
 
     # Set Model dict
     # old_state_dict = model.state_dict
