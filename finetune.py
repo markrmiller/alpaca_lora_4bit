@@ -144,6 +144,9 @@ if not ft_config.skip:
     elif ft_config.ds_type == "llama2" and not ft_config.skip:
         #### LLaMa2
         data = train_data.TrainLLama2(ft_config.dataset, ft_config.val_set_size, tokenizer, ft_config.cutoff_len)
+    elif ft_config.ds_type == "wizchat" and not ft_config.skip:
+        #### LLaMa2
+        data = train_data.TrainWizardChat(ft_config.dataset, ft_config.val_set_size, tokenizer, ft_config.cutoff_len)
     elif ft_config.ds_type == "alpaca" and not ft_config.skip:
         #### Stanford Alpaca-like Data
         data = train_data.TrainSAD(ft_config.dataset, ft_config.val_set_size, tokenizer, ft_config.cutoff_len)
