@@ -55,9 +55,6 @@ from torch.distributed.fsdp.fully_sharded_data_parallel import FullOptimStateDic
 #     optim_state_dict_config=FullOptimStateDictConfig(offload_to_cpu=True, rank0_only=False),
 # )
 
-accelerator = Accelerator(device_placement=True)
-
-
 from alpaca_lora_4bit import autograd_4bit
 if ft_config.backend.lower() == 'triton':
     autograd_4bit.switch_backend_to('triton')
@@ -95,14 +92,14 @@ model, tokenizer = load_llama_model_4bit_low_ram(ft_config.llama_q4_config_dir,
                                                   device_map=ft_config.device_map,
                                                   groupsize=ft_config.groupsize,
                                                   is_v1_model=ft_config.v1)
-model = model.to(accelerator.device)
+
 # Config Lora
 lora_config = LoraConfig(
     r=ft_config.lora_r,
     lora_alpha=ft_config.lora_alpha,
     target_modules=["q_proj", "v_proj"],
     lora_dropout=ft_config.lora_dropout,
-    bias="all",
+    bias="none",
     task_type="CAUSAL_LM",
 )
 if ft_config.lora_apply_dir is None:
@@ -121,7 +118,7 @@ else:
     print(ft_config.lora_apply_dir, 'loaded')
 
 model.config.use_cache = False
-model = accelerator.prepare(model)
+
 
 # Scales to half
 print('Fitting 4bit scales and zeros to half')
@@ -187,7 +184,7 @@ if not ft_config.skip:
         per_device_train_batch_size=ft_config.mbatch_size,
         gradient_accumulation_steps=ft_config.gradient_accumulation_steps,
         warmup_steps=ft_config.warmup_steps,
-        optim="paged_adamw_8bit",
+        optim="adamw_torch",
         num_train_epochs=ft_config.epochs,
         learning_rate=ft_config.lr,
         fp16=True,
@@ -199,7 +196,7 @@ if not ft_config.skip:
         output_dir=ft_config.lora_out_dir,
         save_total_limit=ft_config.save_total_limit,
         load_best_model_at_end=False,
-        ddp_find_unused_parameters=accelerator.distributed_type == DistributedType.MULTI_GPU,
+       # ddp_find_unused_parameters=accelerator.distributed_type == DistributedType.MULTI_GPU,
     )
 
     trainer = transformers.Trainer(
@@ -239,7 +236,8 @@ if not ft_config.skip:
     print('Train completed.')
 
 # Save Model
-model.save_pretrained(ft_config.lora_out_dir)
+#model.save_pretrained(ft_config.lora_out_dir)
+trainer.save_model(ft_config.lora_out_dir)
 
 if ft_config.checkpoint:
     print("Warning: Merge model + LoRA and save the whole checkpoint not implemented yet.")

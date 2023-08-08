@@ -485,9 +485,9 @@ class TrainBlueMoon(ATrainData):
     # Auxiliary methods
     def generate_prompt(self, data_point, **kwargs):
         return "{0}\n{1}\n{2}".format(
-            "prompt:",
+            "USER:",
             data_point["prompt"],
-            "response:",
+            "ASSISTANT:",
             data_point["response"]
         )
 
