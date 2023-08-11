@@ -196,7 +196,7 @@ if not ft_config.skip:
         output_dir=ft_config.lora_out_dir,
         save_total_limit=ft_config.save_total_limit,
         load_best_model_at_end=False,
-        ddp_find_unused_parameters=True,
+        ddp_find_unused_parameters=False,
     )
 
     trainer = transformers.Trainer(

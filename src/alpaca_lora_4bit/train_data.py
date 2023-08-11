@@ -242,8 +242,12 @@ class TrainSimpleJson(ATrainData):
             self.val_data = None
 
     def generate_prompt(self, data_point, **kwargs):
-        return "[INST] <<SYS>>{0}<</SYS>>{1}[/INST]{2}".format(
-            data_point["system"],
+        # return "[INST] <<SYS>>{0}<</SYS>>{1}[/INST]{2}".format(
+        #     data_point["system"],
+        #     data_point["instruction"],
+        #     data_point["output"]
+        # )
+        return "{0}{1}".format(
             data_point["instruction"],
             data_point["output"]
         )
