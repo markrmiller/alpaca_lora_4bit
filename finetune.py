@@ -190,6 +190,7 @@ if not ft_config.skip:
         fp16=True,
         logging_steps=ft_config.logging_steps,
         evaluation_strategy="steps" if eval_steps != 0 else "no",
+        group_by_length=True,
         save_strategy="steps",
         eval_steps=eval_steps if eval_steps != 0 else None,
         save_steps=ft_config.save_steps,
