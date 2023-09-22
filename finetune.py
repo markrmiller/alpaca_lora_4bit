@@ -18,6 +18,9 @@
 """
 import os
 import sys
+
+from bitsandbytes.optim import PagedAdamW8bit
+
 # set src so alpaca_lora_4bit package is available without installing
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 src_dir = os.path.join(project_root, "src")
@@ -30,17 +33,12 @@ ft_config = get_config()
 from alpaca_lora_4bit.monkeypatch.peft_tuners_lora_monkey_patch import replace_peft_model_with_int4_lora_model
 replace_peft_model_with_int4_lora_model()
 
-from alpaca_lora_4bit.monkeypatch.llama_attn_hijack_xformers import hijack_llama_attention
-
-hijack_llama_attention()
-
 if ft_config.flash_attention:
     from alpaca_lora_4bit.monkeypatch.llama_flash_attn_monkey_patch import replace_llama_attn_with_flash_attn
     replace_llama_attn_with_flash_attn()
-
-# Call the rope replace function here
-from monkeypatch.llama_rope_scaled_monkey_patch import replace_llama_rope_with_scaled_rope
-replace_llama_rope_with_scaled_rope()
+elif ft_config.xformers:
+    from alpaca_lora_4bit.monkeypatch.llama_attn_hijack_xformers import hijack_llama_attention
+    hijack_llama_attention()
 
 from accelerate import Accelerator, DistributedType
 accelerator = Accelerator(fp16=True, device_placement=True)
@@ -83,14 +81,14 @@ model, tokenizer = load_llama_model_4bit_low_ram(ft_config.llama_q4_config_dir,
                                                   device_map=ft_config.device_map,
                                                   groupsize=ft_config.groupsize,
                                                   is_v1_model=ft_config.v1)
-model = model.to(accelerator.device)
+
 # Config Lora
 lora_config = LoraConfig(
     r=ft_config.lora_r,
     lora_alpha=ft_config.lora_alpha,
-    target_modules=["q_proj", "v_proj"],
+    target_modules=["q_proj","v_proj","k_proj",  "o_proj"], #
     lora_dropout=ft_config.lora_dropout,
-    bias="all",
+    bias="none",
     task_type="CAUSAL_LM",
 )
 if ft_config.lora_apply_dir is None:
@@ -108,7 +106,6 @@ else:
     model = PeftModel.from_pretrained(model, ft_config.lora_apply_dir, device_map=device_map, torch_dtype=torch.float32, is_trainable=True)
     print(ft_config.lora_apply_dir, 'loaded')
 
-model = accelerator.prepare(model)
 
 # Scales to half
 print('Fitting 4bit scales and zeros to half')
@@ -127,9 +124,14 @@ if not ft_config.skip:
     if ft_config.ds_type == "txt" and not ft_config.skip:
         #### LLaMa
         data = train_data.TrainTxt(ft_config.dataset, ft_config.val_set_size, tokenizer, ft_config.cutoff_len)
-    if ft_config.ds_type == "llama2" and not ft_config.skip:
+    elif ft_config.ds_type == "simple_json" and not ft_config.skip:
+        data = train_data.TrainSimpleJson(ft_config.dataset, ft_config.val_set_size, tokenizer, ft_config.cutoff_len)
+    elif ft_config.ds_type == "llama2" and not ft_config.skip:
         #### LLaMa2
         data = train_data.TrainLLama2(ft_config.dataset, ft_config.val_set_size, tokenizer, ft_config.cutoff_len)
+    elif ft_config.ds_type == "wizchat" and not ft_config.skip:
+        #### LLaMa2
+        data = train_data.TrainWizardChat(ft_config.dataset, ft_config.val_set_size, tokenizer, ft_config.cutoff_len)
     elif ft_config.ds_type == "alpaca" and not ft_config.skip:
         #### Stanford Alpaca-like Data
         data = train_data.TrainSAD(ft_config.dataset, ft_config.val_set_size, tokenizer, ft_config.cutoff_len)
@@ -140,7 +142,7 @@ if not ft_config.skip:
         #### Blue Moon Data
         data = train_data.TrainBlueMoon(ft_config.dataset, ft_config.val_set_size, tokenizer, ft_config.cutoff_len)
     else:
-        raise NotImplementedError("ERROR: Unknown dataset format")
+        raise NotImplementedError("ERROR: Unknown dataset format " + ft_config.ds_type)
     data.prepare_data(thd=ft_config.txt_row_thd, use_eos_token=ft_config.use_eos_token, no_eos_or_pad=ft_config.no_eos_or_pad)
     ####
 
@@ -182,6 +184,7 @@ if not ft_config.skip:
         fp16=True,
         logging_steps=ft_config.logging_steps,
         evaluation_strategy="steps" if eval_steps != 0 else "no",
+        group_by_length=True,
         save_strategy="steps",
         eval_steps=eval_steps if eval_steps != 0 else None,
         save_steps=ft_config.save_steps,
@@ -211,16 +214,16 @@ if not ft_config.skip:
         transformers.logging.set_verbosity_info()
 
     # Run Trainer
-   # with wandb.init(project="alpaca_lora_4bit") as run:
-    if ft_config.resume_checkpoint:
-        print('Resuming from {} ...'.format(ft_config.resume_checkpoint))
-        import transformers.trainer
-        transformers.trainer.WEIGHTS_NAME = 'adapter_model.bin'
-        state_dict_peft = torch.load(os.path.join(ft_config.resume_checkpoint, 'adapter_model.bin'), map_location='cpu')
-        set_peft_model_state_dict(model, state_dict_peft)
-        trainer.train(resume_from_checkpoint=ft_config.resume_checkpoint)
-    else:
-        trainer.train()
+    with wandb.init(project="alpaca_lora_4bit") as run:
+        if ft_config.resume_checkpoint:
+            print('Resuming from {} ...'.format(ft_config.resume_checkpoint))
+            import transformers.trainer
+            transformers.trainer.WEIGHTS_NAME = 'adapter_model.bin'
+            state_dict_peft = torch.load(os.path.join(ft_config.resume_checkpoint, 'adapter_model.bin'), map_location='cpu')
+            set_peft_model_state_dict(model, state_dict_peft)
+            trainer.train(resume_from_checkpoint=ft_config.resume_checkpoint)
+        else:
+            trainer.train()
 
     # Restore old model state dict
     # model.state_dict = old_state_dict
