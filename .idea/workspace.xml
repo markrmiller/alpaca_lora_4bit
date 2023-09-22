@@ -4,10 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="1ffd5cb4-45b5-4790-8379-1122ca3ca0e9" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/finetune.py" beforeDir="false" afterPath="$PROJECT_DIR$/finetune.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/alpaca_lora_4bit/Finetune4bConfig.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/alpaca_lora_4bit/Finetune4bConfig.py" afterDir="false" />
-    </list>
+    <list default="true" id="1ffd5cb4-45b5-4790-8379-1122ca3ca0e9" name="Changes" comment="local" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -32,8 +29,9 @@
   "keyToString": {
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
+    "SONARLINT_PRECOMMIT_ANALYSIS": "true",
     "WebServerToolWindowFactoryState": "false",
-    "git-widget-placeholder": "rope__accelerate",
+    "git-widget-placeholder": "winglian-setup__pip",
     "last_opened_file_path": "X:/home/markmiller/pix2pixHD",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
@@ -54,9 +52,22 @@
       <workItem from="1693511934572" duration="3601000" />
       <workItem from="1693545421394" duration="44000" />
     </task>
+    <task id="LOCAL-00001" summary="local">
+      <option name="closed" value="true" />
+      <created>1695415639894</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1695415639895</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="local" />
+    <option name="LAST_COMMIT_MESSAGE" value="local" />
   </component>
 </project>
