@@ -86,7 +86,7 @@ model, tokenizer = load_llama_model_4bit_low_ram(ft_config.llama_q4_config_dir,
 lora_config = LoraConfig(
     r=ft_config.lora_r,
     lora_alpha=ft_config.lora_alpha,
-    target_modules=["q_proj","v_proj","k_proj",  "o_proj"], #
+    target_modules=["q_proj","v_proj","k_proj",  "o_proj"],
     lora_dropout=ft_config.lora_dropout,
     bias="none",
     task_type="CAUSAL_LM",
@@ -170,16 +170,16 @@ if not ft_config.skip:
 
     optimizer = PagedAdamW8bit(model.parameters(), lr=ft_config.lr)
 
-    optimizer = accelerator.prepare(optimizer)
-    data.train_data = accelerator.prepare(data.train_data)
-    data.val_data = accelerator.prepare(data.val_data)
+    #optimizer = accelerator.prepare(optimizer)
+    #data.train_data = accelerator.prepare(data.train_data)
+    #data.val_data = accelerator.prepare(data.val_data)
 
     training_arguments = transformers.TrainingArguments(
         per_device_train_batch_size=ft_config.mbatch_size,
         gradient_accumulation_steps=ft_config.gradient_accumulation_steps,
         warmup_steps=ft_config.warmup_steps,
         optim=optimizer,
-        device=accelerator.device,
+       # device=accelerator.device,
         num_train_epochs=ft_config.epochs,
         learning_rate=ft_config.lr,
         fp16=True,
