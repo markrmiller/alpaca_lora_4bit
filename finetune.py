@@ -31,6 +31,7 @@ from alpaca_lora_4bit.arg_parser import get_config
 ft_config = get_config()
 
 from alpaca_lora_4bit.monkeypatch.peft_tuners_lora_monkey_patch import replace_peft_model_with_int4_lora_model
+print("try peft replace")
 replace_peft_model_with_int4_lora_model()
 
 if ft_config.flash_attention:
