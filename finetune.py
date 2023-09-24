@@ -41,7 +41,7 @@ elif ft_config.xformers:
     hijack_llama_attention()
 
 from accelerate import Accelerator, DistributedType
-accelerator = Accelerator(fp16=True, device_placement=True)
+accelerator = Accelerator()
 
 
 from alpaca_lora_4bit import autograd_4bit
@@ -96,14 +96,15 @@ if ft_config.lora_apply_dir is None:
 else:
     device_map = ft_config.device_map
     if ft_config.ddp:
-        device_map = {'': 0}
+        #device_map = {'': 0}
+        device_map = "auto"
     else:
         if torch.cuda.device_count() > 1:
             device_map = "auto"
         else:
             device_map = {'': 0}
     print('Device map for lora:', device_map)
-    model = PeftModel.from_pretrained(model, ft_config.lora_apply_dir, device_map=device_map, torch_dtype=torch.float32, is_trainable=True)
+    model = PeftModel.from_pretrained(model, ft_config.lora_apply_dir, device_map=device_map, torch_dtype=torch.bfloat16, is_trainable=True)
     print(ft_config.lora_apply_dir, 'loaded')
 
 
@@ -231,7 +232,11 @@ if not ft_config.skip:
     print('Train completed.')
 
 # Save Model
-model.save_pretrained(ft_config.lora_out_dir)
+#model.save_pretrained(ft_config.lora_out_dir)
+if trainer.is_fsdp_enabled:
+    trainer.accelerator.state.fsdp_plugin.set_state_dict_type("FULL_STATE_DICT")
+
+trainer.save_model(ft_config.lora_out_dir)
 
 if ft_config.checkpoint:
     print("Warning: Merge model + LoRA and save the whole checkpoint not implemented yet.")
