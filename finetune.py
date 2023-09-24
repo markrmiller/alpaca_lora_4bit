@@ -169,7 +169,7 @@ if not ft_config.skip:
     else:
         eval_steps = 0
 
-    optimizer = PagedAdamW8bit(model.parameters(), lr=ft_config.lr)
+    #optimizer = PagedAdamW8bit(model.parameters(), lr=ft_config.lr)
 
     #optimizer = accelerator.prepare(optimizer)
     #data.train_data = accelerator.prepare(data.train_data)
@@ -179,7 +179,7 @@ if not ft_config.skip:
         per_device_train_batch_size=ft_config.mbatch_size,
         gradient_accumulation_steps=ft_config.gradient_accumulation_steps,
         warmup_steps=ft_config.warmup_steps,
-        optim=optimizer,
+        optim="adafactor",
        # device=accelerator.device,
         num_train_epochs=ft_config.epochs,
         learning_rate=ft_config.lr,
