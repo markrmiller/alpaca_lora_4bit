@@ -363,10 +363,8 @@ class TrainWizardChat(ATrainData):
             self.val_data = None
 
     def generate_prompt(self, data_point, **kwargs):
-        return "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions.\n\nWrite {0}'s next detailed reply in a fictional roleplay chat between {1} and {0}.\nUSER: {1}: {2}\nASSISTANT:  {0}: {3}\n".format(
-            data_point["output_sender"],
-            data_point["input_sender"],
-            data_point["input"],
+        return "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions.USER: {0} ASSISTANT: {1}".format(
+            data_point["instruction"],
             data_point["output"]
         )
 
