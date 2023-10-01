@@ -41,6 +41,9 @@ elif ft_config.xformers:
     from alpaca_lora_4bit.monkeypatch.llama_attn_hijack_xformers import hijack_llama_attention
     hijack_llama_attention()
 
+from monkeypatch.llama_rope_scaled_monkey_patch import replace_llama_rope_with_scaled_rope
+replace_llama_rope_with_scaled_rope()
+
 from accelerate import Accelerator, DistributedType
 accelerator = Accelerator()
 
