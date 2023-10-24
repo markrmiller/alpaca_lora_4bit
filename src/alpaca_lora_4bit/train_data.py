@@ -247,7 +247,7 @@ class TrainSimpleJson(ATrainData):
         #     data_point["instruction"],
         #     data_point["output"]
         # )
-        return "{0}\n{1}".format(
+        return "{0}\n\n{1}".format(
             data_point["instruction"],
             data_point["output"]
         )
